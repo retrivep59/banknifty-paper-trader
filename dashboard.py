@@ -161,23 +161,26 @@ def _mkt_status() -> str:
 class HeaderBar(Static):
     def render(self) -> Text:
         t = Text(no_wrap=True)
-        t.append("  ◈ ", "bold cyan")
-        t.append("BANKNIFTY SENTINEL", "bold bright_white")
-        t.append(" ◈ ", "bold cyan")
-        t.append(f"  {_now_ist()} IST  ", "dim white")
-
+        t.append("  ⬡ ", "bold #00c8ff")
+        t.append("BANKNIFTY SENTINEL", "bold #e8f4ff")
+        t.append("  │  ", "dim #0d3050")
+        t.append(f"⏱ {_now_ist()} IST", "#4a6a88")
+        t.append("  │  ", "dim #0d3050")
         st = STATE.mkt_status
         if st == "OPEN":
-            t.append("● MARKET OPEN ", "bold bright_green")
+            t.append("◉ MARKET OPEN", "bold #00e676")
         elif st == "PRE-OPEN":
-            t.append("◐ PRE-OPEN ", "bold yellow")
-        elif st == "DEMO":
-            t.append("◈ DEMO ", "bold cyan")
+            t.append("◐ PRE-OPEN", "bold #ffcc00")
+        elif "DEMO" in st or "BT" in st:
+            t.append(f"◈ {st}", "bold #00c8ff")
         else:
-            t.append("○ CLOSED ", "dim red")
-
-        t.append(f" │ candles {STATE.candles:,}", "dim white")
-        t.append(f"  │ {STATE.status_msg}", "dim cyan")
+            t.append(f"○ {st}", "dim #ff6688")
+        t.append("  │  ", "dim #0d3050")
+        t.append(f"▣ {STATE.mode}", "bold #0099dd")
+        t.append("  │  ", "dim #0d3050")
+        t.append(f"◈ {STATE.candles:,} candles", "dim #3a5a70")
+        t.append("  │  ", "dim #0d3050")
+        t.append(STATE.status_msg[:52], "dim #4a6a80")
         return t
 
 
@@ -185,35 +188,33 @@ class PricePanel(Static):
     def render(self) -> Text:
         s = STATE
         t = Text()
-        t.append("◈ PRICE ACTION\n", "bold cyan")
-        t.append("─" * 40 + "\n", "dim #1e3a5f")
-
-        t.append(f"  ₹{s.price:>12,.2f}\n", "bold bright_white")
-
         chg = s.price - s.price_open
         pct = chg / max(s.price_open, 1) * 100
         arrow = "▲" if chg >= 0 else "▼"
-        st = "bold bright_green" if chg >= 0 else "bold bright_red"
-        t.append(f"  {arrow} {chg:+,.1f}  ({pct:+.2f}%)\n", st)
-        t.append(f"  H ₹{s.price_high:,.1f}  ", "dim green")
-        t.append(f"L ₹{s.price_low:,.1f}\n\n", "dim red")
+        chg_st = "#00e676" if chg >= 0 else "#ff1744"
 
-        # Sparkline
-        spark = _spark(s.history, width=40)
+        t.append("━━━━ LIVE PRICE " + "━" * 24 + "\n", "#0d3050")
+        t.append("\n")
+        t.append(f"   ₹  {s.price:>12,.2f}\n", "bold #e8f4ff")
+        t.append(f"   {arrow}  {chg:+,.1f}   ({pct:+.2f}%)\n", f"bold {chg_st}")
+        t.append("\n")
+
+        spark = _spark(s.history, width=38)
         t.append("  ")
         for ch, sty in spark:
             t.append(ch, sty)
         t.append("\n\n")
 
-        # Open position
+        t.append(f"  H ₹{s.price_high:>9,.1f}   L ₹{s.price_low:>9,.1f}\n", "dim #3a5a70")
+        t.append("─" * 40 + "\n", "dim #0d3050")
+
         if s.in_pos:
             unr = (s.price - s.pos_entry) * abs(s.pos_lots) * 15 * (1 if s.pos_side == "LONG" else -1)
-            side_st = "bold bright_green" if s.pos_side == "LONG" else "bold bright_red"
-            arrow2 = "▲" if s.pos_side == "LONG" else "▼"
-            t.append(f"  {arrow2} {s.pos_side}  {s.pos_lots}L  @₹{s.pos_entry:,.0f}  ", side_st)
-            t.append(f"unr {_fmt(unr)}", _pnl_style(unr))
+            side_st = "#00e676" if s.pos_side == "LONG" else "#ff1744"
+            t.append(f"  {'▲' if s.pos_side == 'LONG' else '▼'} {s.pos_side}  {s.pos_lots}L  @₹{s.pos_entry:,.0f}", f"bold {side_st}")
+            t.append(f"    {_fmt(unr)}\n", _pnl_style(unr))
         else:
-            t.append("  ○ No open position", "dim white")
+            t.append("  ─  No open position\n", "dim #3a5a70")
         return t
 
 
@@ -221,25 +222,30 @@ class SignalPanel(Static):
     def render(self) -> Text:
         s = STATE
         t = Text()
-        t.append("◈ AI SIGNAL\n", "bold cyan")
-        t.append("─" * 40 + "\n", "dim #1e3a5f")
+        t.append("━━━━ AI SIGNAL " + "━" * 25 + "\n", "#0d3050")
+        t.append("\n")
 
         sig = s.signal
         if sig == "BUY":
-            box_st, arrow = "bold bright_green", "▲"
+            box_st = "#00e676"
+            arrow  = "▲"
         elif sig == "SELL":
-            box_st, arrow = "bold bright_red", "▼"
+            box_st = "#ff1744"
+            arrow  = "▼"
         else:
-            box_st, arrow = "bold bright_yellow", "◈"
+            box_st = "#3a5a70"
+            arrow  = "◈"
 
-        t.append("\n    ╔══════════════╗\n", "cyan")
-        t.append(f"    ║  {arrow}  {sig:<7}  ║\n", box_st)
-        t.append("    ╚══════════════╝\n", "cyan")
-
+        t.append(f"  ┌{'─' * 36}┐\n", box_st)
+        label = f"   {arrow}   {sig}"
+        t.append(f"  │{label:<36}│\n", f"bold {box_st}")
         if sig in ("BUY", "SELL") and s.sig_entry > 0:
-            t.append(f"\n  Entry : ₹{s.sig_entry:,.1f}  Lots: {s.sig_lots}\n", "white")
-        t.append(f"\n  {s.sig_reason[:38]}\n", "dim white")
-        t.append(f"  Last update: {s.sig_ts}\n", "dim cyan")
+            sub = f"   Entry ₹{s.sig_entry:,.1f}  ·  {s.sig_lots} lot"
+            t.append(f"  │{sub:<36}│\n", box_st)
+        t.append(f"  └{'─' * 36}┘\n", box_st)
+        t.append("\n")
+        t.append(f"  {s.sig_reason[:38]}\n", "dim #4a6a80")
+        t.append(f"  ⏱  {s.sig_ts}\n", "dim #3a5a70")
         return t
 
 
@@ -247,27 +253,30 @@ class AccountPanel(Static):
     def render(self) -> Text:
         s = STATE
         t = Text()
-        t.append("◈ ACCOUNT\n", "bold cyan")
-        t.append("─" * 28 + "\n", "dim #1e3a5f")
+        t.append("━━━━ ACCOUNT " + "━" * 16 + "\n", "#0d3050")
 
         bal_pct = (s.balance / max(s.start_bal, 1) - 1) * 100
-        bal_st = "bold bright_green" if s.balance >= s.start_bal else "bold bright_red"
-        t.append(f"  ₹{s.balance:>13,.2f}\n", bal_st)
-        t.append(f"  ({bal_pct:+.2f}% of start)\n\n", "dim white")
+        bal_st  = "#00e676" if s.balance >= s.start_bal else "#ff1744"
+        bal_arr = "▲" if s.balance >= s.start_bal else "▼"
+        t.append(f"\n  {bal_arr} ₹{s.balance:>11,.0f}", f"bold {bal_st}")
+        t.append(f"   {bal_pct:+.2f}%\n", bal_st)
+        t.append("─" * 29 + "\n", "dim #0d3050")
 
-        t.append("  Realised    ", "dim white")
-        t.append(f"{_fmt(s.total_pnl)}\n", _pnl_style(s.total_pnl))
-        t.append("  Unrealised  ", "dim white")
-        t.append(f"{_fmt(s.unrealised)}\n", _pnl_style(s.unrealised))
         total = s.total_pnl + s.unrealised
-        t.append("  Total P&L   ", "dim white")
-        t.append(f"{_fmt(total)}\n", _pnl_style(total))
-        t.append(f"  Fees paid   ₹{s.total_fees:,.0f}\n\n", "dim red")
+        for lbl, val in [("Realised  ", s.total_pnl),
+                          ("Unrealised", s.unrealised),
+                          ("Total P&L ", total)]:
+            arr = "▲" if val >= 0 else "▼"
+            t.append(f"  {lbl}  {arr} ", _pnl_style(val))
+            t.append(f"{_fmt(val)}\n", _pnl_style(val))
 
-        dd = s.max_dd_pct
-        dd_st = "bright_red" if dd > 10 else ("yellow" if dd > 5 else "bright_green")
-        t.append("  Max Drawdown\n", "dim white")
-        t.append(f"  [{_bar(dd, 0, 25, w=16)}] {dd:.1f}%\n", dd_st)
+        t.append(f"\n  Fees paid    ₹{s.total_fees:>8,.0f}\n", "dim #ff6644")
+        t.append("─" * 29 + "\n", "dim #0d3050")
+
+        dd    = s.max_dd_pct
+        dd_st = "#ff1744" if dd > 10 else ("#ffcc00" if dd > 5 else "#00e676")
+        t.append("  Max Drawdown\n", "dim #3a5a70")
+        t.append(f"  [{_bar(dd, 0, 20, w=18)}] {dd:.1f}%\n", dd_st)
         return t
 
 
@@ -275,16 +284,18 @@ class TodayPanel(Static):
     def render(self) -> Text:
         s = STATE
         t = Text()
-        t.append("◈ TODAY\n", "bold cyan")
-        t.append("─" * 28 + "\n", "dim #1e3a5f")
-        t.append(f"  Trades   {s.trades_today:>8}\n", "white")
-        t.append("  P&L      ", "dim white")
+        t.append("━━━━ SESSION " + "━" * 16 + "\n", "#0d3050")
+        t.append("\n")
+        t.append("  Today P&L   ", "dim #3a5a70")
         t.append(f"{_fmt(s.pnl_today)}\n", _pnl_style(s.pnl_today))
-        t.append(f"\n  All-time  {s.total_trades:>8}\n", "white")
-        t.append(f"  Candles  {s.candles:>9,}\n", "dim white")
-        t.append(f"  Mode     {'  ' + s.mode:>9}\n", "cyan")
-        wup = "✓ READY" if s.warmup_done else "⟳ WARMUP"
-        t.append(f"  Status   {wup:>9}\n", "bright_green" if s.warmup_done else "yellow")
+        t.append(f"  Trades       {s.trades_today:>8}\n", "#b0c8e0")
+        t.append("─" * 29 + "\n", "dim #0d3050")
+        t.append(f"  All-time     {s.total_trades:>8}\n", "dim #3a5a70")
+        t.append(f"  Candles      {s.candles:>8,}\n", "dim #3a5a70")
+        t.append(f"  Mode      {s.mode:>11}\n", "#0099dd")
+        wup    = "✓ READY  " if s.warmup_done else "⟳ WARMING"
+        wup_st = "#00e676" if s.warmup_done else "#ffcc00"
+        t.append(f"  Status    {wup:>11}\n", wup_st)
         return t
 
 
@@ -292,39 +303,40 @@ class IndicatorsPanel(Static):
     def render(self) -> Text:
         s = STATE
         t = Text()
-        t.append("◈ INDICATORS\n", "bold cyan")
-        t.append("─" * 28 + "\n", "dim #1e3a5f")
+        t.append("━━━━ INDICATORS " + "━" * 13 + "\n", "#0d3050")
 
-        # RSI
         rsi = s.rsi
         if rsi >= 70:
-            rsi_st, rsi_lbl = "bright_red", "OVERBOUGHT"
+            rsi_st, rsi_lbl = "#ff1744", "OVERBOUGHT"
         elif rsi <= 30:
-            rsi_st, rsi_lbl = "bright_green", "OVERSOLD"
+            rsi_st, rsi_lbl = "#00e676", "OVERSOLD  "
+        elif rsi >= 55:
+            rsi_st, rsi_lbl = "#00c8ff", "BULLISH   "
+        elif rsi <= 45:
+            rsi_st, rsi_lbl = "#ff9900", "BEARISH   "
         else:
-            rsi_st, rsi_lbl = "yellow", "NEUTRAL"
-        t.append(f"  RSI  {rsi:5.1f}  {rsi_lbl}\n", "dim white")
-        t.append(f"  [{_bar(rsi, 0, 100, w=18)}]\n\n", rsi_st)
+            rsi_st, rsi_lbl = "#4a6a88", "NEUTRAL   "
+        t.append(f"\n  RSI  ", "dim #3a5a70")
+        t.append(f"{rsi:5.1f}  ", f"bold {rsi_st}")
+        t.append(f"{rsi_lbl}\n", rsi_st)
+        t.append(f"  [{_bar(rsi, 0, 100, w=20)}]\n\n", rsi_st)
 
-        # MACD
-        mh = s.macd_hist
-        mh_st = "bright_green" if mh >= 0 else "bright_red"
-        t.append("  MACD Hist  ", "dim white")
-        t.append(f"{'▲' if mh >= 0 else '▼'} {mh:+.1f}\n\n", mh_st)
+        mh    = s.macd_hist
+        mh_st = "#00e676" if mh >= 0 else "#ff1744"
+        t.append("  MACD Hist   ", "dim #3a5a70")
+        t.append(f"{'▲' if mh >= 0 else '▼'} {mh:+.2f}\n\n", f"bold {mh_st}")
 
-        # EMAs
-        ef, es = s.ema_fast, s.ema_slow
-        cross_st = "bright_green" if ef > es else "bright_red"
-        cross_lbl = "BULLISH ▲" if ef > es else "BEARISH ▼"
-        t.append(f"  EMA-fast  ₹{ef:>9,.0f}\n", "white")
-        t.append(f"  EMA-slow  ₹{es:>9,.0f}\n", "dim white")
-        t.append(f"  Cross     {cross_lbl:>9}\n\n", cross_st)
+        ef, es  = s.ema_fast, s.ema_slow
+        ema_st  = "#00e676" if ef > es else "#ff1744"
+        ema_lbl = "▲ BULLISH" if ef > es else "▼ BEARISH"
+        t.append(f"  EMA-F  ₹{ef:>9,.0f}\n", "#b0c8e0")
+        t.append(f"  EMA-S  ₹{es:>9,.0f}\n", "dim #3a5a70")
+        t.append(f"  Cross   {ema_lbl:>10}\n\n", f"bold {ema_st}")
 
-        # Bollinger Bands
-        bw = max(s.bb_upper - s.bb_lower, 1)
+        bw     = max(s.bb_upper - s.bb_lower, 1)
         bb_pos = (s.price - s.bb_lower) / bw * 100
-        t.append(f"  BB  ₹{s.bb_lower:,.0f} → ₹{s.bb_upper:,.0f}\n", "dim white")
-        t.append(f"  [{_bar(bb_pos, 0, 100, w=18)}] {bb_pos:.0f}%\n", "cyan")
+        t.append(f"  BB  ₹{s.bb_lower:,.0f} ─── ₹{s.bb_upper:,.0f}\n", "dim #3a5a70")
+        t.append(f"  [{_bar(bb_pos, 0, 100, w=20)}] {bb_pos:.0f}%\n", "#00c8ff")
         return t
 
 
@@ -332,38 +344,37 @@ class StatsPanel(Static):
     def render(self) -> Text:
         s = STATE
         t = Text()
-        t.append("◈ STATISTICS\n", "bold cyan")
-        t.append("─" * 28 + "\n", "dim #1e3a5f")
+        t.append("━━━━ PERFORMANCE " + "━" * 12 + "\n", "#0d3050")
+        t.append("\n")
 
         total = s.winners + s.losers
-        wr = s.winners / max(total, 1) * 100
-        wr_st = "bright_green" if wr >= 50 else "bright_red"
-        t.append("  Win Rate\n", "dim white")
-        t.append(f"  [{_bar(wr, 0, 100, w=16, fill='▓')}] {wr:.1f}%\n", wr_st)
-        t.append(f"  {s.winners}W / {s.losers}L\n\n", "dim white")
+        wr    = s.winners / max(total, 1) * 100
+        wr_st = "#00e676" if wr >= 55 else ("#ffcc00" if wr >= 45 else "#ff1744")
+        t.append("  Win Rate\n", "dim #3a5a70")
+        t.append(f"  [{_bar(wr, 0, 100, w=18, fill='▓', empty='░')}] {wr:.0f}%\n", wr_st)
+        t.append(f"  {s.winners}W  /  {s.losers}L\n\n", "dim #3a5a70")
 
-        t.append("  Avg Win   ", "dim white")
-        t.append(f"{_fmt(s.avg_win)}\n", "bright_green")
-        t.append("  Avg Loss  ", "dim white")
-        t.append(f"{_fmt(s.avg_loss)}\n", "bright_red")
+        t.append("  Avg Win    ", "dim #3a5a70")
+        t.append(f"{_fmt(s.avg_win)}\n", "#00e676")
+        t.append("  Avg Loss   ", "dim #3a5a70")
+        t.append(f"{_fmt(s.avg_loss)}\n", "#ff1744")
 
-        pf = abs(s.avg_win * s.winners) / max(abs(s.avg_loss * s.losers), 0.01)
-        pf_st = "bright_green" if pf >= 1.0 else "bright_red"
-        t.append(f"\n  Profit Factor  ", "dim white")
-        t.append(f"{pf:.2f}×\n", pf_st)
+        pf    = abs(s.avg_win * s.winners) / max(abs(s.avg_loss * s.losers), 0.01)
+        pf_st = "#00e676" if pf >= 1.5 else ("#ffcc00" if pf >= 1.0 else "#ff1744")
+        t.append(f"\n  P-Factor    ", "dim #3a5a70")
+        t.append(f"{pf:.2f}×\n", f"bold {pf_st}")
 
-        rr = abs(s.avg_win / s.avg_loss) if s.avg_loss != 0 else 0.0
-        rr_st = "bright_green" if rr >= 1.0 else "yellow"
-        t.append("  Risk/Reward   ", "dim white")
+        rr    = abs(s.avg_win / s.avg_loss) if s.avg_loss != 0 else 0.0
+        rr_st = "#00e676" if rr >= 1.5 else ("#ffcc00" if rr >= 1.0 else "#ff1744")
+        t.append("  Risk/Rew    ", "dim #3a5a70")
         t.append(f"{rr:.2f}×\n", rr_st)
         return t
 
 
 class TradeLogPanel(Static):
-    """Header row for the trade log section."""
     def render(self) -> Text:
         t = Text()
-        t.append("◈ TRADE LOG", "bold cyan")
+        t.append("━━━━ TRADE LOG " + "━" * 64, "#0d3050")
         return t
 
 
@@ -376,18 +387,18 @@ class BankNiftySentinel(App):
 
     CSS = """
     Screen {
-        background: #080c14;
-        color: #c8d0e0;
+        background: #040810;
+        color: #b0c8e0;
     }
     HeaderBar {
         dock: top;
         height: 1;
-        background: #0a1020;
+        background: #07111e;
         padding: 0 1;
     }
     Footer {
         dock: bottom;
-        background: #0a1020;
+        background: #07111e;
     }
     #body {
         height: 1fr;
@@ -403,62 +414,65 @@ class BankNiftySentinel(App):
     }
     AccountPanel {
         height: 3fr;
-        border: round #1e3a5f;
-        background: #0d1117;
+        border: tall #0d2d4a;
+        background: #060c14;
         padding: 0 1;
     }
     TodayPanel {
         height: 2fr;
-        border: round #1e3a5f;
-        background: #0d1117;
+        border: tall #0d2d4a;
+        background: #060c14;
         padding: 0 1;
     }
     PricePanel {
         height: 3fr;
-        border: round #1e3a5f;
-        background: #0d1117;
+        border: tall #0d2d4a;
+        background: #060c14;
         padding: 0 1;
     }
     SignalPanel {
         height: 2fr;
-        border: round #1e3a5f;
-        background: #0d1117;
+        border: tall #0d2d4a;
+        background: #060c14;
         padding: 0 1;
     }
     IndicatorsPanel {
         height: 3fr;
-        border: round #1e3a5f;
-        background: #0d1117;
+        border: tall #0d2d4a;
+        background: #060c14;
         padding: 0 1;
     }
     StatsPanel {
         height: 2fr;
-        border: round #1e3a5f;
-        background: #0d1117;
+        border: tall #0d2d4a;
+        background: #060c14;
         padding: 0 1;
     }
     #log-section {
         dock: bottom;
         height: 12;
-        border: round #1e3a5f;
-        background: #0d1117;
+        border: tall #0d2d4a;
+        background: #060c14;
     }
     TradeLogPanel {
         height: 1;
         padding: 0 1;
-        background: #0d1117;
+        background: #08111e;
     }
     DataTable {
         height: 1fr;
-        background: #0d1117;
+        background: #060c14;
     }
     DataTable > .datatable--header {
-        background: #0f1e35;
-        color: #00d4ff;
+        background: #0a1e35;
+        color: #00c8ff;
         text-style: bold;
     }
     DataTable > .datatable--cursor {
-        background: #1a2a4a;
+        background: #0f2840;
+    }
+    DataTable > .datatable--even-row {
+        background: #07101a;
     }
     """
 
@@ -494,7 +508,7 @@ class BankNiftySentinel(App):
 
     def _tick(self) -> None:
         global _TRADE_ROWS_RENDERED
-        STATE.mkt_status = _mkt_status() if STATE.mode in ("LIVE", "BACKTEST") else "DEMO"
+        STATE.mkt_status = _mkt_status() if STATE.mode in ("LIVE", "BACKTEST", "SCALP-LIVE", "SCALP-BT") else STATE.mode
 
         for w in (HeaderBar, PricePanel, SignalPanel,
                   AccountPanel, TodayPanel, IndicatorsPanel, StatsPanel):
@@ -508,13 +522,13 @@ class BankNiftySentinel(App):
                 gross = trade.get("gross_pnl", 0.0)
                 side = trade.get("side", "")
                 side_txt = Text(f" {'▲' if side == 'LONG' else '▼'} {side}",
-                                style="bold bright_green" if side == "LONG" else "bold bright_red")
+                                style="bold #00e676" if side == "LONG" else "bold #ff1744")
                 net_txt = Text(
                     f" {'▲' if net >= 0 else '▼'} {_fmt(net)}",
-                    style="bold bright_green" if net >= 0 else "bold bright_red",
+                    style="bold #00e676" if net >= 0 else "bold #ff1744",
                 )
                 gross_txt = Text(f" {_fmt(gross)}",
-                                 style="bright_green" if gross >= 0 else "bright_red")
+                                 style="#00e676" if gross >= 0 else "#ff1744")
                 tbl.add_row(
                     f"  {trade.get('time','--:--')}",
                     side_txt,
@@ -538,7 +552,8 @@ class BankNiftySentinel(App):
 # Background worker — Demo mode (synthetic GARCH-lite candles + live agent)
 # ══════════════════════════════════════════════════════════════════════════
 
-def _run_demo(capital: float, speed: float, instrument_key: str = "FUTURES") -> None:
+def _run_demo(capital: float, speed: float, instrument_key: str = "FUTURES",
+              scalp: bool = False) -> None:
     """Generate synthetic BankNifty candles and run the real trading engine."""
     import time as _time
 
@@ -554,21 +569,9 @@ def _run_demo(capital: float, speed: float, instrument_key: str = "FUTURES") -> 
     instrument = inst_map.get(instrument_key, cfg.INSTRUMENT_FUTURES)
     symbol = f"BANKNIFTY-{instrument_key}"
 
-    broker = PaperBroker(starting_balance=capital, seed=42)
-    agent = BankNiftyAgent(
-        cfg=AgentConfig(
-            warmup_candles=20,
-            max_lots=1,
-            trailing_stop_pts=50.0,
-            daily_stop_loss_pct=0.02,
-            rsi_oversold=30.0,
-            rsi_overbought=70.0,
-        ),
-        symbol=symbol,
-        instrument=instrument,
-    )
+    broker, agent = _make_broker_agent(capital, symbol, instrument, scalp=scalp)
 
-    STATE.mode = "DEMO"
+    STATE.mode = "SCALP-DEMO" if scalp else "DEMO"
     STATE.start_bal = capital
     STATE.mkt_status = "DEMO"
 
@@ -978,17 +981,28 @@ def _push_to_state(
     STATE.status_msg   = status_msg
 
 
-def _make_broker_agent(capital: float, symbol: str, instrument: str):
+def _make_broker_agent(capital: float, symbol: str, instrument: str, scalp: bool = False):
     broker = PaperBroker(starting_balance=capital, seed=42)
-    agent  = BankNiftyAgent(
-        cfg=AgentConfig(
+    if scalp:
+        agent_cfg = AgentConfig(
+            ema_fast=5, ema_slow=13, ema_trend=21,
+            rsi_period=7, supertrend_period=5, supertrend_mult=2.0,
+            macd_fast=5, macd_slow=13, macd_signal=5, atr_period=7,
+            scalp_mode=True, profit_target_pts=25.0, hard_stop_pts=15.0,
+            trailing_stop_pts=20.0, atr_trailing_multiplier=0.5,
+            rsi_oversold=40.0, rsi_overbought=60.0,
+            use_regime_filter=False, skip_open_candles=1, skip_close_candles=1,
+            warmup_candles=20, max_lots=1, daily_stop_loss_pct=0.04,
+            max_trades_per_day=20,
+        )
+    else:
+        agent_cfg = AgentConfig(
             warmup_candles=60, max_lots=1,
             trailing_stop_pts=100.0,
             rsi_overbought=65.0, rsi_oversold=35.0,
             daily_stop_loss_pct=0.05,
-        ),
-        symbol=symbol, instrument=instrument,
-    )
+        )
+    agent = BankNiftyAgent(cfg=agent_cfg, symbol=symbol, instrument=instrument)
     return broker, agent
 
 
@@ -1016,21 +1030,21 @@ def _feed_candle(candle: dict, broker, agent, symbol: str, instrument: str):
 # ══════════════════════════════════════════════════════════════════════════
 
 def _run_backtest(capital: float, days: int, speed: float,
-                  instrument_key: str = "FUTURES") -> None:
+                  instrument_key: str = "FUTURES", scalp: bool = False) -> None:
     import time as _time
     if not HAS_TRADING:
-        _run_demo(capital, speed, instrument_key); return
+        _run_demo(capital, speed, instrument_key, scalp=scalp); return
     try:
         from data.live_feed import LiveFeed
     except ImportError:
-        _run_demo(capital, speed, instrument_key); return
+        _run_demo(capital, speed, instrument_key, scalp=scalp); return
 
     inst_map   = {"FUTURES": cfg.INSTRUMENT_FUTURES,
                   "CE": cfg.INSTRUMENT_CALL, "PE": cfg.INSTRUMENT_PUT}
     instrument = inst_map.get(instrument_key, cfg.INSTRUMENT_FUTURES)
     symbol     = f"BANKNIFTY-{instrument_key}"
 
-    STATE.mode      = "BACKTEST"
+    STATE.mode      = "SCALP-BT" if scalp else "BACKTEST"
     STATE.start_bal = capital
     STATE.status_msg = f"Fetching {days}-day history from Yahoo Finance…"
 
@@ -1039,9 +1053,9 @@ def _run_backtest(capital: float, days: int, speed: float,
         hist_df = feed.fetch_history(days=days)
     except Exception as exc:
         STATE.status_msg = f"Fetch failed ({exc.__class__.__name__}) — switching to DEMO"
-        _run_demo(capital, speed, instrument_key); return
+        _run_demo(capital, speed, instrument_key, scalp=scalp); return
 
-    broker, agent = _make_broker_agent(capital, symbol, instrument)
+    broker, agent = _make_broker_agent(capital, symbol, instrument, scalp=scalp)
     ind = _IndicatorState()
     day_open = price_high = price_low = 0.0
 
@@ -1071,7 +1085,7 @@ def _run_backtest(capital: float, days: int, speed: float,
 # ══════════════════════════════════════════════════════════════════════════
 
 def _run_live_trading(capital: float, instrument_key: str = "FUTURES",
-                      warmup_days: int = 1) -> None:
+                      warmup_days: int = 1, scalp: bool = False) -> None:
     """
     Proper live paper trading:
       1. Fetch 3 days of 5-min history → replay at 20× for fast warmup
@@ -1092,7 +1106,7 @@ def _run_live_trading(capital: float, instrument_key: str = "FUTURES",
     instrument = inst_map.get(instrument_key, cfg.INSTRUMENT_FUTURES)
     symbol     = f"BANKNIFTY-{instrument_key}"
 
-    STATE.mode      = "LIVE"
+    STATE.mode      = "SCALP-LIVE" if scalp else "LIVE"
     STATE.start_bal = capital
     STATE.mkt_status = "OPEN"
 
@@ -1103,9 +1117,9 @@ def _run_live_trading(capital: float, instrument_key: str = "FUTURES",
         hist_df = feed_5m.fetch_history(days=warmup_days)
     except Exception as exc:
         STATE.status_msg = f"Yahoo Finance unreachable ({exc.__class__.__name__}) — switching to DEMO"
-        _run_demo(capital, 2.0, instrument_key); return
+        _run_demo(capital, 2.0, instrument_key, scalp=scalp); return
 
-    broker, agent = _make_broker_agent(capital, symbol, instrument)
+    broker, agent = _make_broker_agent(capital, symbol, instrument, scalp=scalp)
     ind = _IndicatorState()
     day_open = price_high = price_low = 0.0
 
@@ -1239,26 +1253,25 @@ def main() -> None:
                         help="Days of history to fetch for agent warmup in --live mode")
     parser.add_argument("--speed",      type=float, default=2.0,
                         help="Replay speed multiplier for --demo / --backtest (default: 2)")
+    parser.add_argument("--scalp",      action="store_true",
+                        help="Scalp mode: EMA 5/13, profit target +25pts, hard stop -15pts, up to 20 trades/day")
     args = parser.parse_args()
 
     STATE.start_bal = args.capital
     STATE.balance   = args.capital
 
     if args.live:
-        # Live paper trading with real Yahoo Finance data
         target = _run_live_trading
         kwargs = dict(capital=args.capital, instrument_key=args.instrument,
-                      warmup_days=args.warmup)
+                      warmup_days=args.warmup, scalp=args.scalp)
     elif args.backtest:
-        # Replay historical data at speed
         target = _run_backtest
         kwargs = dict(capital=args.capital, days=args.days, speed=args.speed,
-                      instrument_key=args.instrument)
+                      instrument_key=args.instrument, scalp=args.scalp)
     else:
-        # Default: demo (instant, no network)
         target = _run_demo
         kwargs = dict(capital=args.capital, speed=args.speed,
-                      instrument_key=args.instrument)
+                      instrument_key=args.instrument, scalp=args.scalp)
 
     worker = threading.Thread(target=target, kwargs=kwargs, daemon=True)
     worker.start()
